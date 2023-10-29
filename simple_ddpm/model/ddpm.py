@@ -5,6 +5,7 @@ __all__ = ["Block", "Model"]
 
 # %% ../../nbs/02_model/02.00_ddpm.ipynb 3
 from torch_snippets import *
+from torch_snippets.trainer import to
 from ..data.load_cifar import denorm
 
 # %% ../../nbs/02_model/02.00_ddpm.ipynb 4
@@ -40,7 +41,7 @@ class Block(nn.Module):
 # %% ../../nbs/02_model/02.00_ddpm.ipynb 5
 class Model(nn.Module):
     def __init__(self, config):
-        super(Model, self).__init__()
+        super().__init__()
         self.config = config
 
         self.l_ts = nn.Sequential(
@@ -74,8 +75,14 @@ class Model(nn.Module):
 
         # make optimizer
         self.opt = torch.optim.Adam(self.parameters(), lr=0.0008)
+        self.main_input_name = "x"
 
     def forward(self, x, t, y=None):
+        x = to(x, self.config.device)
+        t = to(t, self.config.device)
+        if y is not None:
+            y = to(y, self.config.device)
+
         x_ts = self.l_ts(t)
         # ----- left ( down ) -----
         blocks = [
@@ -135,9 +142,7 @@ class Model(nn.Module):
     @torch.no_grad()
     def stepwise_denoise(self, n):
         o = []
-        im = torch.randn(
-            size=(n, 3, self.config.IMG_SIZE, self.config.IMG_SIZE), device=device
-        )
+        im = torch.randn(size=(n, 3, self.config.IMG_SIZE, self.config.IMG_SIZE)).cpu()
         o.append(im)
         for t in range(self.config.timesteps):
             _ts = torch.full([n, 1], t, dtype=torch.float)
